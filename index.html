@@ -1,0 +1,2003 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta
+      name="description"
+      content="A modern, mobile-friendly calculator with scientific functions, keyboard support and history."
+    />
+    <meta name="theme-color" content="#080d18" />
+    <title>Calculator</title>
+    <style>
+      /* ============================= Design tokens ============================= */
+      :root {
+        color-scheme: dark;
+        --bg: #080d18;
+        --panel: #0c1324;
+        --card: linear-gradient(
+          160deg,
+          rgba(255, 255, 255, 0.09),
+          rgba(255, 255, 255, 0.02)
+        );
+        --surface: rgba(255, 255, 255, 0.06);
+        --surface-2: rgba(255, 255, 255, 0.11);
+        --border: rgba(255, 255, 255, 0.09);
+        --text: #eaf0ff;
+        --muted: #8d9bb8;
+        --accent: #7aa2ff;
+        --accent-soft: rgba(122, 162, 255, 0.16);
+        --accent-text: #a9c0ff;
+        --danger: #ff7d95;
+        --danger-soft: rgba(255, 125, 149, 0.14);
+        --eq-a: #6d8dff;
+        --eq-b: #2ed3e0;
+        --eq-shadow: rgba(90, 130, 255, 0.45);
+        --shadow: 0 40px 90px -40px rgba(0, 0, 0, 0.9);
+        --ring: rgba(122, 162, 255, 0.5);
+      }
+
+      [data-theme="light"] {
+        color-scheme: light;
+        --bg: #e9eefb;
+        --panel: #ffffff;
+        --card: linear-gradient(160deg, #ffffff, #f1f5ff);
+        --surface: rgba(15, 23, 42, 0.045);
+        --surface-2: rgba(15, 23, 42, 0.09);
+        --border: rgba(15, 23, 42, 0.09);
+        --text: #0e1729;
+        --muted: #5a6884;
+        --accent: #2f6bff;
+        --accent-soft: rgba(47, 107, 255, 0.1);
+        --accent-text: #1f56e0;
+        --danger: #e11d48;
+        --danger-soft: rgba(225, 29, 72, 0.1);
+        --eq-a: #3b74ff;
+        --eq-b: #12b5cf;
+        --eq-shadow: rgba(47, 107, 255, 0.35);
+        --shadow: 0 40px 80px -45px rgba(30, 58, 138, 0.45);
+        --ring: rgba(47, 107, 255, 0.45);
+      }
+
+      /* ============================= Base ============================= */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 14px;
+        padding: clamp(12px, 3vw, 32px);
+        padding-bottom: max(
+          clamp(12px, 3vw, 32px),
+          env(safe-area-inset-bottom)
+        );
+        font-family:
+          "Inter",
+          "SF Pro Display",
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        color: var(--text);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
+        -webkit-tap-highlight-color: transparent;
+        transition:
+          background-color 0.4s ease,
+          color 0.4s ease;
+        overflow-x: hidden;
+      }
+
+      .app {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        width: 100%;
+        margin-block: auto;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: -25%;
+        z-index: -1;
+        pointer-events: none;
+        background:
+          radial-gradient(
+            40% 35% at 20% 15%,
+            var(--accent-soft),
+            transparent 70%
+          ),
+          radial-gradient(
+            35% 30% at 82% 85%,
+            rgba(46, 211, 224, 0.13),
+            transparent 70%
+          ),
+          radial-gradient(
+            30% 30% at 80% 8%,
+            rgba(255, 125, 149, 0.08),
+            transparent 70%
+          );
+        filter: blur(10px);
+      }
+
+      /* ============================= Calculator shell ============================= */
+      .calculator {
+        position: relative;
+        width: min(432px, 100%);
+        display: flex;
+        flex-direction: column;
+        gap: clamp(10px, 2vw, 14px);
+        padding: clamp(12px, 2.6vw, 18px);
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        background: var(--card);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(22px) saturate(140%);
+        -webkit-backdrop-filter: blur(22px) saturate(140%);
+        overflow: hidden;
+        user-select: none;
+      }
+
+      .calc-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 2px 4px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+      }
+
+      .brand-mark {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 9px;
+        color: var(--accent-text);
+        background: var(--accent-soft);
+        border: 1px solid var(--border);
+      }
+
+      .brand-mark svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .head-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .chip {
+        font: inherit;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        padding: 6px 9px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--muted);
+        cursor: pointer;
+        transition:
+          color 0.18s ease,
+          background 0.18s ease,
+          border-color 0.18s ease,
+          transform 0.12s ease;
+      }
+
+      .chip:hover {
+        color: var(--text);
+        background: var(--surface-2);
+      }
+      .chip:active {
+        transform: scale(0.96);
+      }
+      .chip.active {
+        color: var(--accent-text);
+        background: var(--accent-soft);
+        border-color: var(--ring);
+      }
+
+      .icon-btn {
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border-radius: 11px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        cursor: pointer;
+        transition:
+          background 0.18s ease,
+          border-color 0.18s ease,
+          transform 0.12s ease;
+      }
+
+      .icon-btn:hover {
+        background: var(--surface-2);
+        border-color: var(--ring);
+      }
+      .icon-btn:active {
+        transform: scale(0.94);
+      }
+      .icon-btn svg {
+        width: 15px;
+        height: 15px;
+      }
+      .icon-sun {
+        display: none;
+      }
+      [data-theme="light"] .icon-moon {
+        display: none;
+      }
+      [data-theme="light"] .icon-sun {
+        display: block;
+      }
+
+      /* ============================= Display ============================= */
+      .display {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        gap: 4px;
+        min-height: clamp(112px, 26vw, 140px);
+        padding: clamp(10px, 2.4vw, 16px);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        background: var(--surface);
+        overflow: hidden;
+      }
+
+      .display.error {
+        animation: shake 0.45s ease;
+        border-color: var(--danger);
+      }
+
+      @keyframes shake {
+        10%,
+        90% {
+          transform: translateX(-2px);
+        }
+        20%,
+        80% {
+          transform: translateX(3px);
+        }
+        30%,
+        50%,
+        70% {
+          transform: translateX(-5px);
+        }
+        40%,
+        60% {
+          transform: translateX(5px);
+        }
+      }
+
+      .display-history {
+        min-height: 1.1em;
+        font-size: 0.76rem;
+        line-height: 1.1;
+        color: var(--muted);
+        text-align: right;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .expression {
+        font-size: clamp(1.85rem, 8.4vw, 2.5rem);
+        font-weight: 600;
+        line-height: 1.18;
+        letter-spacing: -0.01em;
+        text-align: right;
+        white-space: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+      }
+
+      .expression::-webkit-scrollbar,
+      .display-history::-webkit-scrollbar {
+        display: none;
+      }
+
+      .preview {
+        min-height: 1.25em;
+        font-size: clamp(0.82rem, 3.4vw, 0.95rem);
+        font-weight: 500;
+        text-align: right;
+        color: var(--accent-text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .preview.error {
+        color: var(--danger);
+      }
+
+      /* ============================= Keypad ============================= */
+      .keys {
+        display: flex;
+        flex-direction: column;
+        gap: clamp(8px, 1.8vw, 11px);
+      }
+
+      .key {
+        display: grid;
+        place-items: center;
+        font: inherit;
+        height: clamp(50px, 9vw, 62px);
+        padding: 0;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: var(--surface);
+        color: var(--text);
+        cursor: pointer;
+        user-select: none;
+        -webkit-user-select: none;
+        transition:
+          background 0.16s ease,
+          border-color 0.16s ease,
+          transform 0.1s ease,
+          box-shadow 0.16s ease;
+      }
+
+      .key:hover {
+        background: var(--surface-2);
+      }
+      .key:active {
+        transform: scale(0.95);
+      }
+      .key:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      .sci-keys {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 6px;
+      }
+
+      .sci-keys .key {
+        height: clamp(34px, 7vw, 40px);
+        border-radius: 11px;
+        border-color: transparent;
+        background: transparent;
+        color: var(--muted);
+        font-size: clamp(0.72rem, 2.9vw, 0.85rem);
+        font-weight: 500;
+      }
+
+      .sci-keys .key:hover {
+        color: var(--accent-text);
+        background: var(--accent-soft);
+      }
+      .sci-keys .key.active {
+        color: var(--accent-text);
+        background: var(--accent-soft);
+      }
+
+      .main-keys {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: clamp(7px, 1.8vw, 11px);
+      }
+
+      .main-keys .key {
+        font-size: clamp(1.05rem, 4vw, 1.28rem);
+        font-weight: 500;
+      }
+      .main-keys .key.num {
+        font-weight: 600;
+      }
+      .main-keys .key.op {
+        color: var(--accent-text);
+        background: var(--accent-soft);
+        font-weight: 600;
+      }
+      .main-keys .key.op:hover {
+        background: var(--surface-2);
+      }
+      .main-keys .key.fn {
+        color: var(--danger);
+        background: var(--danger-soft);
+        font-weight: 600;
+      }
+      .main-keys .key.fn:hover {
+        background: var(--surface-2);
+      }
+
+      .main-keys .key.equals {
+        border-color: transparent;
+        background: linear-gradient(135deg, var(--eq-a), var(--eq-b));
+        color: #fff;
+        font-weight: 700;
+        box-shadow: 0 14px 26px -14px var(--eq-shadow);
+      }
+
+      .main-keys .key.equals:hover {
+        filter: brightness(1.06);
+      }
+
+      /* ============================= History drawer ============================= */
+      .history {
+        position: absolute;
+        inset: 0;
+        z-index: 5;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: inherit;
+        border-radius: inherit;
+        background: var(--panel);
+        transform: translateY(-102%);
+        opacity: 0;
+        pointer-events: none;
+        transition:
+          transform 0.34s cubic-bezier(0.32, 0.72, 0, 1),
+          opacity 0.28s ease;
+      }
+
+      .history.open {
+        transform: translateY(0);
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .history-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 2px 4px;
+      }
+
+      .history-head h2 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+      }
+
+      .history-head-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .history-list {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding-right: 2px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+      }
+
+      .history-item {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 2px;
+        padding: 9px 12px;
+        font: inherit;
+        text-align: right;
+        border: 1px solid var(--border);
+        border-radius: 13px;
+        background: var(--surface);
+        color: var(--text);
+        cursor: pointer;
+        transition:
+          background 0.16s ease,
+          border-color 0.16s ease,
+          transform 0.1s ease;
+      }
+
+      .history-item:hover {
+        background: var(--surface-2);
+        border-color: var(--ring);
+      }
+      .history-item:active {
+        transform: scale(0.985);
+      }
+
+      .h-expr {
+        max-width: 100%;
+        font-size: 0.74rem;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .h-res {
+        font-size: 1rem;
+        font-weight: 600;
+      }
+
+      .empty {
+        margin: 24px 0 0;
+        font-size: 0.84rem;
+        line-height: 1.6;
+        color: var(--muted);
+        text-align: center;
+      }
+
+      .hint {
+        margin: 0;
+        font-size: 0.72rem;
+        color: var(--muted);
+        text-align: center;
+        letter-spacing: 0.02em;
+      }
+
+      .hint kbd {
+        padding: 1px 5px;
+        font-family: inherit;
+        font-size: 0.9em;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        background: var(--surface);
+      }
+
+      /* ============================= Responsive ============================= */
+      @media (max-width: 420px) {
+        .calculator {
+          border-radius: 22px;
+          padding: 11px;
+          gap: 9px;
+        }
+        .display {
+          min-height: 104px;
+          border-radius: 16px;
+        }
+        .main-keys .key {
+          border-radius: 13px;
+          height: clamp(46px, 12vw, 56px);
+        }
+        .sci-keys {
+          gap: 4px;
+        }
+        .sci-keys .key {
+          border-radius: 9px;
+        }
+        .brand span:not(.brand-mark) {
+          display: none;
+        }
+        .hint {
+          display: none;
+        }
+      }
+
+      @media (max-width: 340px) {
+        .sci-keys .key {
+          font-size: 0.68rem;
+        }
+        .sci-keys {
+          gap: 2px;
+        }
+      }
+
+      @media (max-height: 680px) {
+        body {
+          justify-content: flex-start;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.001ms !important;
+          transition-duration: 0.001ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <main class="calculator" id="calculator">
+        <header class="calc-head">
+          <div class="brand">
+            <span class="brand-mark" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="4" y="3" width="16" height="18" rx="2.5" />
+                <path d="M8 8h8M8 12h2M12 12h2M16 12v4M8 16h2M12 16h2" />
+              </svg>
+            </span>
+            <span>Calculator</span>
+          </div>
+          <div class="head-actions">
+            <button
+              class="chip"
+              id="invBtn"
+              type="button"
+              aria-pressed="false"
+              title="Inverse functions"
+            >
+              INV
+            </button>
+            <button
+              class="chip"
+              id="angleBtn"
+              type="button"
+              aria-label="Toggle angle unit, currently degrees"
+              title="Degrees / Radians"
+            >
+              DEG
+            </button>
+            <button
+              class="icon-btn"
+              id="themeBtn"
+              type="button"
+              aria-label="Toggle color theme"
+              title="Toggle theme"
+            >
+              <svg
+                class="icon-moon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />
+              </svg>
+              <svg
+                class="icon-sun"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="4" />
+                <path
+                  d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"
+                />
+              </svg>
+            </button>
+            <button
+              class="icon-btn"
+              id="historyBtn"
+              type="button"
+              aria-label="Show history"
+              aria-expanded="false"
+              title="History"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7.5V12l3 1.8" />
+              </svg>
+            </button>
+          </div>
+        </header>
+
+        <section
+          class="display"
+          id="display"
+          aria-live="polite"
+          aria-label="Calculator display"
+        >
+          <div class="display-history" id="historyLine"></div>
+          <div class="expression" id="expression">0</div>
+          <div class="preview" id="preview"></div>
+        </section>
+
+        <section class="keys" id="keys" aria-label="Keypad">
+          <div class="sci-keys">
+            <button
+              class="key"
+              type="button"
+              data-action="insert"
+              data-value="sin("
+              data-alt-value="asin("
+              data-alt-label="sin⁻¹"
+            >
+              sin
+            </button>
+            <button
+              class="key"
+              type="button"
+              data-action="insert"
+              data-value="cos("
+              data-alt-value="acos("
+              data-alt-label="cos⁻¹"
+            >
+              cos
+            </button>
+            <button
+              class="key"
+              type="button"
+              data-action="insert"
+              data-value="tan("
+              data-alt-value="atan("
+              data-alt-label="tan⁻¹"
+            >
+              tan
+            </button>
+            <button
+              class="key"
+              type="button"
+              data-action="open"
+              aria-label="Open bracket"
+            >
+              (
+            </button>
+            <button
+              class="key"
+              type="button"
+              data-action="close"
+              aria-label="Close bracket"
+            >
+              )
+            </button>
+
+            <button
+              class="key"
+              type="button"
+              data-action="insert"
+              data-value="log("
+              data-alt-value="10^("
+              data-alt-label="10ˣ"
+            >
+              log
+            </button>
+            <button
+              class="key"
+              type="button"
+              data-action="insert"
+              data-value="ln("
+              data-alt-value="e^("
+              data-alt-label="eˣ"
+            >
+              ln
+            </button>
+            <button
+              class="key"
+              type="button"
+              data-action="insert"
+              data-value="√("
+              data-alt-value="abs("
+              data-alt-label="|x|"
+            >
+              √
+            </button>
+            <button
+              class="key"
+              type="button"
+              data-action="post"
+              data-value="²"
+              aria-label="Square"
+            >
+              x²
+            </button>
+            <button
+              class="key"
+              type="button"
+              data-action="op"
+              data-value="^"
+              aria-label="Power"
+            >
+              xʸ
+            </button>
+
+            <button
+              class="key"
+              type="button"
+              data-action="insert"
+              data-value="π"
+              aria-label="Pi"
+            >
+              π
+            </button>
+            <button
+              class="key"
+              type="button"
+              data-action="insert"
+              data-value="e"
+              aria-label="Euler's number"
+            >
+              e
+            </button>
+            <button
+              class="key"
+              type="button"
+              data-action="post"
+              data-value="!"
+              aria-label="Factorial"
+            >
+              n!
+            </button>
+            <button
+              class="key"
+              type="button"
+              data-action="post"
+              data-value="⁻¹"
+              aria-label="Reciprocal"
+            >
+              1/x
+            </button>
+            <button
+              class="key"
+              type="button"
+              data-action="insert"
+              data-value="Ans"
+              aria-label="Previous answer"
+            >
+              Ans
+            </button>
+          </div>
+
+          <div class="main-keys">
+            <button
+              class="key fn"
+              type="button"
+              data-action="ac"
+              aria-label="All clear"
+            >
+              AC
+            </button>
+            <button
+              class="key fn"
+              type="button"
+              data-action="del"
+              aria-label="Delete last character"
+            >
+              ⌫
+            </button>
+            <button
+              class="key fn"
+              type="button"
+              data-action="post"
+              data-value="%"
+              aria-label="Percent"
+            >
+              %
+            </button>
+            <button
+              class="key op"
+              type="button"
+              data-action="op"
+              data-value="÷"
+              aria-label="Divide"
+            >
+              ÷
+            </button>
+
+            <button
+              class="key num"
+              type="button"
+              data-action="num"
+              data-value="7"
+            >
+              7
+            </button>
+            <button
+              class="key num"
+              type="button"
+              data-action="num"
+              data-value="8"
+            >
+              8
+            </button>
+            <button
+              class="key num"
+              type="button"
+              data-action="num"
+              data-value="9"
+            >
+              9
+            </button>
+            <button
+              class="key op"
+              type="button"
+              data-action="op"
+              data-value="×"
+              aria-label="Multiply"
+            >
+              ×
+            </button>
+
+            <button
+              class="key num"
+              type="button"
+              data-action="num"
+              data-value="4"
+            >
+              4
+            </button>
+            <button
+              class="key num"
+              type="button"
+              data-action="num"
+              data-value="5"
+            >
+              5
+            </button>
+            <button
+              class="key num"
+              type="button"
+              data-action="num"
+              data-value="6"
+            >
+              6
+            </button>
+            <button
+              class="key op"
+              type="button"
+              data-action="op"
+              data-value="−"
+              aria-label="Subtract"
+            >
+              −
+            </button>
+
+            <button
+              class="key num"
+              type="button"
+              data-action="num"
+              data-value="1"
+            >
+              1
+            </button>
+            <button
+              class="key num"
+              type="button"
+              data-action="num"
+              data-value="2"
+            >
+              2
+            </button>
+            <button
+              class="key num"
+              type="button"
+              data-action="num"
+              data-value="3"
+            >
+              3
+            </button>
+            <button
+              class="key op"
+              type="button"
+              data-action="op"
+              data-value="+"
+              aria-label="Add"
+            >
+              +
+            </button>
+
+            <button
+              class="key num"
+              type="button"
+              data-action="sign"
+              aria-label="Toggle sign"
+            >
+              ±
+            </button>
+            <button
+              class="key num"
+              type="button"
+              data-action="num"
+              data-value="0"
+            >
+              0
+            </button>
+            <button
+              class="key num"
+              type="button"
+              data-action="dot"
+              aria-label="Decimal point"
+            >
+              .
+            </button>
+            <button
+              class="key equals"
+              type="button"
+              data-action="equals"
+              aria-label="Equals"
+            >
+              =
+            </button>
+          </div>
+        </section>
+
+        <div
+          class="history"
+          id="historyPanel"
+          aria-hidden="true"
+          aria-label="Calculation history"
+        >
+          <div class="history-head">
+            <h2>History</h2>
+            <div class="history-head-actions">
+              <button class="chip" id="clearHistory" type="button">
+                CLEAR
+              </button>
+              <button
+                class="icon-btn"
+                id="closeHistory"
+                type="button"
+                aria-label="Close history"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="history-list" id="historyList"></div>
+        </div>
+      </main>
+
+      <p class="hint">
+        Keyboard ready — <kbd>0-9</kbd> <kbd>+ − * /</kbd> <kbd>Enter</kbd>
+        <kbd>Backspace</kbd> <kbd>Esc</kbd>
+      </p>
+    </div>
+    <script>
+      (function () {
+        "use strict";
+
+        /* ===================== MATH ENGINE START ===================== */
+        const CONSTS = {
+          pi: Math.PI,
+          π: Math.PI,
+          e: Math.E,
+          tau: Math.PI * 2,
+        };
+
+        const FUNC_NAMES = new Set([
+          "sin",
+          "cos",
+          "tan",
+          "asin",
+          "acos",
+          "atan",
+          "log",
+          "ln",
+          "√",
+          "abs",
+        ]);
+
+        function makeFuncs(angle) {
+          const toRad = angle === "DEG" ? (d) => (d * Math.PI) / 180 : (d) => d;
+          const fromRad =
+            angle === "DEG" ? (r) => (r * 180) / Math.PI : (r) => r;
+
+          // Clamp tiny floating point noise so sin(180°) is 0, not 1.2e-16.
+          const snap = (v) => {
+            if (Math.abs(v) < 1e-12) return 0;
+            if (Math.abs(Math.abs(v) - 1) < 1e-12) return Math.sign(v);
+            return v;
+          };
+
+          return {
+            sin: (x) => snap(Math.sin(toRad(x))),
+            cos: (x) => snap(Math.cos(toRad(x))),
+            tan: (x) => snap(Math.tan(toRad(x))),
+            asin: (x) => {
+              if (x < -1 || x > 1) throw new Error("Domain error");
+              return fromRad(Math.asin(x));
+            },
+            acos: (x) => {
+              if (x < -1 || x > 1) throw new Error("Domain error");
+              return fromRad(Math.acos(x));
+            },
+            atan: (x) => fromRad(Math.atan(x)),
+            log: (x) => {
+              if (x <= 0) throw new Error("Domain error");
+              return Math.log10(x);
+            },
+            ln: (x) => {
+              if (x <= 0) throw new Error("Domain error");
+              return Math.log(x);
+            },
+            "√": (x) => {
+              if (x < 0) throw new Error("Domain error");
+              return Math.sqrt(x);
+            },
+            abs: (x) => Math.abs(x),
+          };
+        }
+
+        function factorial(n) {
+          if (!Number.isInteger(n) || n < 0)
+            throw new Error("Factorial needs a non-negative integer");
+          if (n > 170) throw new Error("Out of range");
+          let result = 1;
+          for (let i = 2; i <= n; i++) result *= i;
+          return result;
+        }
+
+        function tokenize(src, ctx) {
+          const tokens = [];
+          const isDigit = (c) => c >= "0" && c <= "9";
+          const isAlpha = (c) => c !== undefined && /[a-zA-Z]/.test(c);
+          let i = 0;
+
+          while (i < src.length) {
+            const c = src[i];
+
+            if (c === " " || c === "\t" || c === ",") {
+              i++;
+              continue;
+            }
+
+            // Number (supports exponents such as 1.5e-7)
+            if (isDigit(c) || c === ".") {
+              let j = i;
+              while (j < src.length && (isDigit(src[j]) || src[j] === ".")) j++;
+              if (src[j] === "e" || src[j] === "E") {
+                let k = j + 1;
+                if (src[k] === "+" || src[k] === "-") k++;
+                if (isDigit(src[k])) {
+                  while (k < src.length && isDigit(src[k])) k++;
+                  j = k;
+                }
+              }
+              const value = Number(src.slice(i, j));
+              if (!Number.isFinite(value)) throw new Error("Invalid number");
+              tokens.push({ t: "num", v: value });
+              i = j;
+              continue;
+            }
+
+            // Names: functions, constants, Ans
+            if (isAlpha(c)) {
+              let j = i;
+              while (j < src.length && isAlpha(src[j])) j++;
+              const raw = src.slice(i, j);
+              const name = raw.toLowerCase();
+              if (name === "ans") tokens.push({ t: "num", v: ctx.ans });
+              else if (Object.prototype.hasOwnProperty.call(CONSTS, name))
+                tokens.push({ t: "num", v: CONSTS[name] });
+              else if (FUNC_NAMES.has(name))
+                tokens.push({ t: "func", v: name });
+              else throw new Error("Unknown symbol: " + raw);
+              i = j;
+              continue;
+            }
+
+            if (c === "π") {
+              tokens.push({ t: "num", v: Math.PI });
+              i++;
+              continue;
+            }
+            if (c === "√") {
+              tokens.push({ t: "func", v: "√" });
+              i++;
+              continue;
+            }
+
+            if (c === "×" || c === "*") {
+              tokens.push({ t: "op", v: "*" });
+              i++;
+              continue;
+            }
+            if (c === "÷" || c === "/") {
+              tokens.push({ t: "op", v: "/" });
+              i++;
+              continue;
+            }
+            if (c === "−" || c === "-") {
+              tokens.push({ t: "op", v: "-" });
+              i++;
+              continue;
+            }
+            if (c === "+") {
+              tokens.push({ t: "op", v: "+" });
+              i++;
+              continue;
+            }
+            if (c === "^") {
+              tokens.push({ t: "op", v: "^" });
+              i++;
+              continue;
+            }
+
+            if (c === "(") {
+              tokens.push({ t: "open" });
+              i++;
+              continue;
+            }
+            if (c === ")") {
+              tokens.push({ t: "close" });
+              i++;
+              continue;
+            }
+
+            if (c === "²") {
+              tokens.push({ t: "post", v: "sq" });
+              i++;
+              continue;
+            }
+            if (c === "!") {
+              tokens.push({ t: "post", v: "fact" });
+              i++;
+              continue;
+            }
+            if (c === "%") {
+              tokens.push({ t: "post", v: "pct" });
+              i++;
+              continue;
+            }
+            if (c === "⁻" && src[i + 1] === "¹") {
+              tokens.push({ t: "post", v: "inv" });
+              i += 2;
+              continue;
+            }
+
+            throw new Error("Unexpected character: " + c);
+          }
+
+          // Insert implicit multiplication: 2π, 3(4+1), (2)(3), 2sin(30)
+          const out = [];
+          for (const token of tokens) {
+            const prev = out[out.length - 1];
+            if (prev) {
+              const prevIsValue =
+                prev.t === "num" || prev.t === "close" || prev.t === "post";
+              const nextStartsValue =
+                token.t === "num" || token.t === "func" || token.t === "open";
+              if (prevIsValue && nextStartsValue) out.push({ t: "op", v: "*" });
+            }
+            out.push(token);
+          }
+          return out;
+        }
+
+        class Parser {
+          constructor(tokens, funcs) {
+            this.tokens = tokens;
+            this.funcs = funcs;
+            this.i = 0;
+          }
+
+          peek() {
+            return this.tokens[this.i];
+          }
+          next() {
+            return this.tokens[this.i++];
+          }
+          isDone() {
+            return this.i >= this.tokens.length;
+          }
+
+          parse() {
+            const value = this.expression();
+            if (!this.isDone()) throw new Error("Unexpected token");
+            return value;
+          }
+
+          expression() {
+            let value = this.term();
+            for (;;) {
+              const t = this.peek();
+              if (!t || t.t !== "op" || (t.v !== "+" && t.v !== "-")) break;
+              this.next();
+              const rhs = this.term();
+              value = t.v === "+" ? value + rhs : value - rhs;
+            }
+            return value;
+          }
+
+          term() {
+            let value = this.unary();
+            for (;;) {
+              const t = this.peek();
+              if (!t || t.t !== "op" || (t.v !== "*" && t.v !== "/")) break;
+              this.next();
+              const rhs = this.unary();
+              if (t.v === "/") {
+                if (rhs === 0) throw new Error("Division by zero");
+                value = value / rhs;
+              } else {
+                value = value * rhs;
+              }
+            }
+            return value;
+          }
+
+          unary() {
+            const t = this.peek();
+            if (t && t.t === "op" && (t.v === "+" || t.v === "-")) {
+              this.next();
+              const value = this.unary();
+              return t.v === "-" ? -value : value;
+            }
+            return this.power();
+          }
+
+          power() {
+            const base = this.postfix();
+            const t = this.peek();
+            if (t && t.t === "op" && t.v === "^") {
+              this.next();
+              const exponent = this.unary(); // right associative, allows 2^-3
+              const value = Math.pow(base, exponent);
+              if (Number.isNaN(value)) throw new Error("Math error");
+              return value;
+            }
+            return base;
+          }
+
+          postfix() {
+            let value = this.primary();
+            for (;;) {
+              const t = this.peek();
+              if (!t || t.t !== "post") break;
+              this.next();
+              if (t.v === "sq") value = value * value;
+              else if (t.v === "pct") value = value / 100;
+              else if (t.v === "fact") value = factorial(value);
+              else if (t.v === "inv") {
+                if (value === 0) throw new Error("Division by zero");
+                value = 1 / value;
+              }
+            }
+            return value;
+          }
+
+          primary() {
+            const t = this.next();
+            if (!t) throw new Error("Incomplete expression");
+
+            if (t.t === "num") return t.v;
+
+            if (t.t === "open") {
+              const value = this.expression();
+              const close = this.next();
+              if (!close || close.t !== "close") throw new Error("Missing )");
+              return value;
+            }
+
+            if (t.t === "func") {
+              const fn = this.funcs[t.v];
+              if (!fn) throw new Error("Unknown function");
+              const nx = this.peek();
+              if (nx && nx.t === "open") {
+                this.next();
+                const arg = this.expression();
+                const close = this.next();
+                if (!close || close.t !== "close") throw new Error("Missing )");
+                return fn(arg);
+              }
+              // Allow function without brackets: sin 30
+              return fn(this.power());
+            }
+
+            throw new Error("Unexpected token");
+          }
+        }
+
+        function evaluate(src, options) {
+          const opts = options || {};
+          const ctx = {
+            ans: Number.isFinite(opts.ans) ? opts.ans : 0,
+            angle: opts.angle === "RAD" ? "RAD" : "DEG",
+          };
+          const tokens = tokenize(String(src), ctx);
+          if (!tokens.length) throw new Error("Empty expression");
+          const result = new Parser(tokens, makeFuncs(ctx.angle)).parse();
+          if (Number.isNaN(result)) throw new Error("Math error");
+          return result;
+        }
+
+        /* ===================== MATH ENGINE END ===================== */
+
+        /* ===================== UI ===================== */
+        const MAX_LEN = 120;
+        const OPS = ["+", "−", "×", "÷", "^"];
+        const BACKSPACE_TOKENS = [
+          "asin(",
+          "acos(",
+          "atan(",
+          "sin(",
+          "cos(",
+          "tan(",
+          "log(",
+          "ln(",
+          "10^(",
+          "e^(",
+          "abs(",
+          "√(",
+          "Ans",
+          "π",
+          "⁻¹",
+        ];
+
+        const el = {
+          display: document.getElementById("display"),
+          expression: document.getElementById("expression"),
+          preview: document.getElementById("preview"),
+          historyLine: document.getElementById("historyLine"),
+          keys: document.getElementById("keys"),
+          invBtn: document.getElementById("invBtn"),
+          angleBtn: document.getElementById("angleBtn"),
+          themeBtn: document.getElementById("themeBtn"),
+          historyBtn: document.getElementById("historyBtn"),
+          historyPanel: document.getElementById("historyPanel"),
+          historyList: document.getElementById("historyList"),
+          clearHistory: document.getElementById("clearHistory"),
+          closeHistory: document.getElementById("closeHistory"),
+        };
+
+        const state = {
+          expr: "",
+          ans: 0,
+          angle: "DEG",
+          inv: false,
+          theme: "dark",
+          history: [],
+          justEvaluated: false,
+        };
+
+        const storage = {
+          get(key, fallback) {
+            try {
+              const raw = window.localStorage.getItem(key);
+              return raw === null ? fallback : JSON.parse(raw);
+            } catch (err) {
+              return fallback;
+            }
+          },
+          set(key, value) {
+            try {
+              window.localStorage.setItem(key, JSON.stringify(value));
+            } catch (err) {
+              /* storage unavailable - ignore */
+            }
+          },
+        };
+
+        function formatNumber(value) {
+          if (Number.isNaN(value)) return "Error";
+          if (!Number.isFinite(value)) return value > 0 ? "∞" : "-∞";
+          let x = Object.is(value, -0) ? 0 : value;
+          const abs = Math.abs(x);
+          if (abs !== 0 && (abs >= 1e12 || abs < 1e-9)) {
+            return x
+              .toExponential(8)
+              .replace(/\.?0+e/, "e")
+              .replace("e+", "e");
+          }
+          return String(Number(x.toPrecision(12)));
+        }
+
+        function formatDisplay(value) {
+          const text = formatNumber(value);
+          const [mantissa, exponent] = text.split("e");
+          const negative = mantissa.startsWith("-");
+          const unsigned = negative ? mantissa.slice(1) : mantissa;
+          const dot = unsigned.indexOf(".");
+          const intPart = dot === -1 ? unsigned : unsigned.slice(0, dot);
+          const fracPart = dot === -1 ? "" : unsigned.slice(dot);
+          const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+          return (
+            (negative ? "-" : "") +
+            grouped +
+            fracPart +
+            (exponent ? "e" + exponent : "")
+          );
+        }
+
+        function autoClose(src) {
+          let depth = 0;
+          for (const ch of src) {
+            if (ch === "(") depth++;
+            else if (ch === ")") depth = Math.max(0, depth - 1);
+          }
+          return src + ")".repeat(depth);
+        }
+
+        function render() {
+          el.expression.textContent = state.expr || "0";
+          el.expression.scrollLeft = el.expression.scrollWidth;
+          el.preview.classList.remove("error");
+
+          if (state.expr && !state.justEvaluated) {
+            try {
+              const value = evaluate(autoClose(state.expr), {
+                ans: state.ans,
+                angle: state.angle,
+              });
+              el.preview.textContent = Number.isFinite(value)
+                ? "= " + formatDisplay(value)
+                : "";
+            } catch (err) {
+              el.preview.textContent = "";
+            }
+          } else {
+            el.preview.textContent = "";
+          }
+        }
+
+        let errorTimer = 0;
+
+        function showError(message) {
+          state.expr = "";
+          state.justEvaluated = false;
+          el.expression.textContent = "Error";
+          el.preview.textContent = message || "";
+          el.preview.classList.add("error");
+          el.display.classList.remove("error");
+          void el.display.offsetWidth; // restart the shake animation
+          el.display.classList.add("error");
+          window.clearTimeout(errorTimer);
+          errorTimer = window.setTimeout(
+            () => el.display.classList.remove("error"),
+            520,
+          );
+        }
+
+        /* ---------- input state helpers ---------- */
+
+        function endsWithValue() {
+          const expr = state.expr;
+          if (!expr) return false;
+          const last = expr.slice(-1);
+          if (/[\d)²!%⁻¹]/.test(last)) return true;
+          return (
+            expr.endsWith("π") || expr.endsWith("Ans") || expr.endsWith("e")
+          );
+        }
+
+        function startFresh() {
+          state.expr = "";
+          state.justEvaluated = false;
+          el.historyLine.textContent = "";
+        }
+
+        function continueResult() {
+          if (!state.justEvaluated) return;
+          state.justEvaluated = false;
+          el.historyLine.textContent = "";
+        }
+
+        function pushNumber(digit) {
+          if (state.justEvaluated) startFresh();
+          const tail = state.expr.match(/(\d*\.?\d*)$/)[1];
+          if (tail === "0") {
+            state.expr = state.expr.slice(0, -1) + digit;
+          } else if (state.expr.length < MAX_LEN) {
+            state.expr += digit;
+          }
+          render();
+        }
+
+        function pushDot() {
+          if (state.justEvaluated) startFresh();
+          const tail = state.expr.match(/(\d*\.?\d*)$/)[1];
+          if (tail.includes(".")) return;
+          if (!tail) {
+            state.expr += endsWithValue() ? "×0." : "0.";
+          } else {
+            state.expr += ".";
+          }
+          render();
+        }
+
+        function pushOp(op) {
+          continueResult();
+          if (!state.expr) {
+            if (op === "−") {
+              state.expr = "−";
+              render();
+            }
+            return;
+          }
+          const last = state.expr.slice(-1);
+          if (OPS.includes(last)) {
+            // Replace a dangling operator instead of stacking them.
+            state.expr = state.expr.slice(0, -1) + op;
+          } else if (last === "(") {
+            if (op !== "−") return;
+            state.expr += "−";
+          } else {
+            state.expr += op;
+          }
+          render();
+        }
+
+        function pushInsert(value) {
+          const startsNew =
+            value.endsWith("(") ||
+            value === "π" ||
+            value === "e" ||
+            value === "Ans";
+          if (state.justEvaluated) {
+            if (startsNew) startFresh();
+            else continueResult();
+          }
+          if (state.expr.length + value.length > MAX_LEN + 10) return;
+
+          // A function/constant directly after a digit needs an explicit "×" for readability.
+          if (
+            endsWithValue() &&
+            (value.endsWith("(") || value === "π" || value === "e")
+          ) {
+            state.expr += "×";
+          }
+          state.expr += value;
+          render();
+        }
+
+        function pushPostfix(token) {
+          continueResult();
+          if (!endsWithValue()) return;
+          state.expr += token;
+          render();
+        }
+
+        function pushOpen() {
+          continueResult();
+          if (endsWithValue()) state.expr += "×";
+          state.expr += "(";
+          render();
+        }
+
+        function pushClose() {
+          const open = (state.expr.match(/\(/g) || []).length;
+          const close = (state.expr.match(/\)/g) || []).length;
+          if (open <= close) return;
+          const last = state.expr.slice(-1);
+          if (!last || OPS.includes(last) || last === "(") return;
+          state.expr += ")";
+          render();
+        }
+
+        function toggleSign() {
+          continueResult();
+          if (!state.expr) {
+            state.expr = "−";
+          } else if (state.expr.startsWith("−(") && state.expr.endsWith(")")) {
+            state.expr = state.expr.slice(2, -1);
+          } else if (state.expr.startsWith("−")) {
+            state.expr = state.expr.slice(1);
+          } else {
+            state.expr = "−(" + autoClose(state.expr) + ")";
+          }
+          render();
+        }
+
+        function clearAll() {
+          state.expr = "";
+          state.justEvaluated = false;
+          el.historyLine.textContent = "";
+          el.preview.textContent = "";
+          el.preview.classList.remove("error");
+          el.display.classList.remove("error");
+          render();
+        }
+
+        function backspace() {
+          continueResult();
+          if (!state.expr) return;
+          const token = BACKSPACE_TOKENS.find((t) => state.expr.endsWith(t));
+          state.expr = token
+            ? state.expr.slice(0, -token.length)
+            : state.expr.slice(0, -1);
+          render();
+        }
+
+        /* ---------- evaluation ---------- */
+
+        function calculate() {
+          if (!state.expr || state.justEvaluated) return;
+          const source = autoClose(state.expr);
+          let value;
+          try {
+            value = evaluate(source, { ans: state.ans, angle: state.angle });
+            if (!Number.isFinite(value))
+              throw new Error("Result is out of range");
+          } catch (err) {
+            showError(err.message);
+            return;
+          }
+          const raw = formatNumber(value);
+          const display = formatDisplay(value);
+          state.ans = value;
+          state.expr = raw;
+          state.justEvaluated = true;
+          el.historyLine.textContent = source + " =";
+          pushHistory(source, raw, display);
+          render();
+        }
+
+        /* ---------- history ---------- */
+
+        function pushHistory(exprText, raw, display) {
+          const last = state.history[0];
+          if (last && last.expr === exprText && last.raw === raw) return;
+          state.history.unshift({ expr: exprText, raw: raw, display: display });
+          if (state.history.length > 40) state.history.length = 40;
+          storage.set("calc.history", state.history);
+          renderHistory();
+        }
+
+        function renderHistory() {
+          el.historyList.textContent = "";
+          if (!state.history.length) {
+            const empty = document.createElement("p");
+            empty.className = "empty";
+            empty.textContent =
+              "No calculations yet. Your results will appear here.";
+            el.historyList.appendChild(empty);
+            return;
+          }
+          for (const item of state.history) {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "history-item";
+            btn.title = "Use this result";
+
+            const exprSpan = document.createElement("span");
+            exprSpan.className = "h-expr";
+            exprSpan.textContent = item.expr + " =";
+
+            const resSpan = document.createElement("span");
+            resSpan.className = "h-res";
+            resSpan.textContent = item.display;
+
+            btn.append(exprSpan, resSpan);
+            btn.addEventListener("click", () => {
+              state.expr = item.raw;
+              state.justEvaluated = true;
+              el.historyLine.textContent = item.expr + " =";
+              const numeric = Number(item.raw);
+              if (Number.isFinite(numeric)) state.ans = numeric;
+              closeHistory();
+              render();
+            });
+            el.historyList.appendChild(btn);
+          }
+        }
+
+        function openHistory() {
+          renderHistory();
+          el.historyPanel.classList.add("open");
+          el.historyPanel.setAttribute("aria-hidden", "false");
+          el.historyBtn.setAttribute("aria-expanded", "true");
+        }
+
+        function closeHistory() {
+          el.historyPanel.classList.remove("open");
+          el.historyPanel.setAttribute("aria-hidden", "true");
+          el.historyBtn.setAttribute("aria-expanded", "false");
+        }
+
+        /* ---------- settings ---------- */
+
+        function applyTheme(theme) {
+          state.theme = theme === "light" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", state.theme);
+          storage.set("calc.theme", state.theme);
+          const meta = document.querySelector('meta[name="theme-color"]');
+          if (meta)
+            meta.setAttribute(
+              "content",
+              state.theme === "light" ? "#e9eefb" : "#080d18",
+            );
+          el.themeBtn.setAttribute(
+            "aria-pressed",
+            state.theme === "light" ? "true" : "false",
+          );
+        }
+
+        function applyAngle(angle) {
+          state.angle = angle === "RAD" ? "RAD" : "DEG";
+          el.angleBtn.textContent = state.angle;
+          el.angleBtn.setAttribute(
+            "aria-label",
+            "Toggle angle unit, currently " +
+              (state.angle === "DEG" ? "degrees" : "radians"),
+          );
+          storage.set("calc.angle", state.angle);
+          render();
+        }
+
+        function applyInv(inv) {
+          state.inv = Boolean(inv);
+          el.invBtn.classList.toggle("active", state.inv);
+          el.invBtn.setAttribute("aria-pressed", state.inv ? "true" : "false");
+          document.querySelectorAll(".key[data-alt-value]").forEach((btn) => {
+            const value = btn.dataset.value;
+            const label = btn.textContent;
+            btn.dataset.value = btn.dataset.altValue;
+            btn.dataset.altValue = value;
+            btn.textContent = btn.dataset.altLabel;
+            btn.dataset.altLabel = label;
+          });
+        }
+
+        /* ---------- actions ---------- */
+
+        function handleAction(action, value) {
+          switch (action) {
+            case "num":
+              pushNumber(value);
+              break;
+            case "dot":
+              pushDot();
+              break;
+            case "op":
+              pushOp(value);
+              break;
+            case "insert":
+              pushInsert(value);
+              break;
+            case "post":
+              pushPostfix(value);
+              break;
+            case "open":
+              pushOpen();
+              break;
+            case "close":
+              pushClose();
+              break;
+            case "sign":
+              toggleSign();
+              break;
+            case "ac":
+              clearAll();
+              break;
+            case "del":
+              backspace();
+              break;
+            case "equals":
+              calculate();
+              break;
+            default:
+              break;
+          }
+        }
+
+        /* ---------- keyboard ---------- */
+
+        function handleKeydown(event) {
+          if (event.ctrlKey || event.metaKey || event.altKey) return;
+          const key = event.key;
+          const historyOpen = el.historyPanel.classList.contains("open");
+
+          if (key === "Escape" && historyOpen) {
+            closeHistory();
+            event.preventDefault();
+            return;
+          }
+
+          if (historyOpen) closeHistory();
+
+          let handled = true;
+          if (/^\d$/.test(key)) pushNumber(key);
+          else if (key === "." || key === ",") pushDot();
+          else if (key === "+") pushOp("+");
+          else if (key === "-") pushOp("−");
+          else if (key === "*" || key === "x" || key === "X") pushOp("×");
+          else if (key === "/") pushOp("÷");
+          else if (key === "^") pushOp("^");
+          else if (key === "(") pushOpen();
+          else if (key === ")") pushClose();
+          else if (key === "%") pushPostfix("%");
+          else if (key === "!") pushPostfix("!");
+          else if (key === "p" || key === "P") pushInsert("π");
+          else if (key === "Enter" || key === "=") calculate();
+          else if (key === "Backspace") backspace();
+          else if (key === "Escape" || key === "Delete") clearAll();
+          else handled = false;
+
+          if (handled) event.preventDefault();
+        }
+
+        /* ---------- boot ---------- */
+
+        function init() {
+          const savedTheme = storage.get("calc.theme", "dark");
+          applyTheme(savedTheme === "light" ? "light" : "dark");
+          applyAngle(storage.get("calc.angle", "DEG"));
+
+          const savedHistory = storage.get("calc.history", []);
+          if (Array.isArray(savedHistory)) {
+            state.history = savedHistory
+              .filter(
+                (item) =>
+                  item &&
+                  typeof item.expr === "string" &&
+                  typeof item.raw === "string" &&
+                  typeof item.display === "string",
+              )
+              .slice(0, 40);
+          }
+          renderHistory();
+          render();
+
+          el.keys.addEventListener("click", (event) => {
+            const btn = event.target.closest("button.key");
+            if (!btn) return;
+            handleAction(btn.dataset.action, btn.dataset.value);
+          });
+
+          el.themeBtn.addEventListener("click", () =>
+            applyTheme(state.theme === "dark" ? "light" : "dark"),
+          );
+          el.angleBtn.addEventListener("click", () =>
+            applyAngle(state.angle === "DEG" ? "RAD" : "DEG"),
+          );
+          el.invBtn.addEventListener("click", () => applyInv(!state.inv));
+
+          el.historyBtn.addEventListener("click", () => {
+            if (el.historyPanel.classList.contains("open")) closeHistory();
+            else openHistory();
+          });
+          el.closeHistory.addEventListener("click", closeHistory);
+          el.clearHistory.addEventListener("click", () => {
+            state.history = [];
+            storage.set("calc.history", state.history);
+            renderHistory();
+          });
+
+          document.addEventListener("keydown", handleKeydown);
+        }
+
+        init();
+      })();
+    </script>
+  </body>
+</html>
